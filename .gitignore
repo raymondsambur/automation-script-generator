@@ -1,0 +1,9 @@
+node_modules
+dist
+.env
+test-results/
+playwright-report/
+blob-report/
+.idea/
+.vscode/
+.DS_Store
