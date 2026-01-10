@@ -7,3 +7,7 @@ blob-report/
 .idea/
 .vscode/
 .DS_Store
+
+# Debug logs
+*debug*.txt
+*.log
