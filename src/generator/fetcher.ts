@@ -101,6 +101,7 @@ export async function getTestCandidates(): Promise<TestTicket[]> {
             ticket.steps = parsed.steps;
             ticket.expectedResult = parsed.expectedResult;
             ticket.testData = parsed.testData;
+            ticket.selectors = parsed.selectors;
 
             return ticket;
         }));
@@ -144,19 +145,21 @@ async function fetchPageContent(pageId: string): Promise<string> {
     }
 }
 
-function parseTestContent(content: string): { prerequisites: Record<string, string>, steps: Record<string, string>, expectedResult: Record<string, string>, testData: any } {
+function parseTestContent(content: string): { prerequisites: Record<string, string>, steps: Record<string, string>, expectedResult: Record<string, string>, testData: any, selectors: Record<string, string> } {
     const sections = {
         prerequisites: {} as Record<string, string>,
         steps: {} as Record<string, string>,
         expectedResult: {} as Record<string, string>,
-        testData: {}
+        testData: {},
+        selectors: {} as Record<string, string>
     };
 
     // Regex to capture sections allowing for Flexible headers
-    const prerequisitesMatch = content.match(/(?:#+\s*)?Prerequisites\s*\n([\s\S]*?)(?=\n\s*(?:#+\s*)?(?:Test Steps|Expected Result|Test Data|$))/i);
-    const stepsMatch = content.match(/(?:#+\s*)?Test Steps\s*\n([\s\S]*?)(?=\n\s*(?:#+\s*)?(?:Expected Result|Test Data|$))/i);
-    const expectedMatch = content.match(/(?:#+\s*)?Expected Results?\s*\n([\s\S]*?)(?=\n\s*(?:#+\s*)?(?:Test Data|$))/i);
-    const testDataMatch = content.match(/(?:#+\s*)?Test Data\s*\n([\s\S]*?)(?=$)/i);
+    const prerequisitesMatch = content.match(/(?:#+\s*)?Prerequisites\s*\n([\s\S]*?)(?=\n\s*(?:#+\s*)?(?:Test Steps|Expected Result|Test Data|Selectors|$))/i);
+    const stepsMatch = content.match(/(?:#+\s*)?Test Steps\s*\n([\s\S]*?)(?=\n\s*(?:#+\s*)?(?:Expected Result|Test Data|Selectors|$))/i);
+    const expectedMatch = content.match(/(?:#+\s*)?Expected Results?\s*\n([\s\S]*?)(?=\n\s*(?:#+\s*)?(?:Test Data|Selectors|$))/i);
+    const testDataMatch = content.match(/(?:#+\s*)?Test Data\s*\n([\s\S]*?)(?=\n\s*(?:#+\s*)?(?:Selectors|$))/i);
+    const selectorsMatch = content.match(/(?:#+\s*)?Selectors\s*\n([\s\S]*?)(?=$)/i);
 
     if (prerequisitesMatch) sections.prerequisites = parseListToObject(prerequisitesMatch[1], 'prerequisites');
     if (stepsMatch) sections.steps = parseListToObject(stepsMatch[1], 'step');
@@ -164,7 +167,6 @@ function parseTestContent(content: string): { prerequisites: Record<string, stri
 
     if (testDataMatch) {
         const rawData = testDataMatch[1].trim();
-
 
         // Extract JSON from code block if present
         const codeBlockMatch = rawData.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
@@ -175,6 +177,26 @@ function parseTestContent(content: string): { prerequisites: Record<string, stri
         } catch (e) {
             console.warn("Failed to parse Test Data JSON:", e);
         }
+    }
+
+    if (selectorsMatch) {
+        const rawSelectors = selectorsMatch[1].trim();
+        // Extract content from code block if present
+        const codeBlockMatch = rawSelectors.match(/```(?:\w+)?\s*([\s\S]*?)\s*```/i);
+        const cleanSelectors = codeBlockMatch ? codeBlockMatch[1] : rawSelectors;
+
+        // Parse key : value format
+        const lines = cleanSelectors.split('\n');
+        lines.forEach(line => {
+            const separatorIndex = line.indexOf(':');
+            if (separatorIndex !== -1) {
+                const key = line.substring(0, separatorIndex).trim();
+                const value = line.substring(separatorIndex + 1).trim();
+                if (key && value) {
+                    sections.selectors[key] = value;
+                }
+            }
+        });
     }
 
     // Fallback: if no sections found, treat content as one big step? 

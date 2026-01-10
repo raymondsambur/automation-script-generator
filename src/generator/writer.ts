@@ -5,6 +5,19 @@ import { promisify } from 'util';
 
 const execAsync = promisify(exec);
 
+// Helper to clean and format
+async function writeAndFormat(filePath: string, code: string): Promise<void> {
+    let cleanCode = code.replace(/^```typescript\s*/, '').replace(/^```\s*/, '').replace(/```$/, '');
+    fs.writeFileSync(filePath, cleanCode);
+
+    try {
+        await execAsync(`npx eslint "${filePath}" --fix`);
+        console.log(`Auto-formatted: ${path.basename(filePath)}`);
+    } catch (e) {
+        console.warn(`Warning: ESLint failed to auto-fix ${path.basename(filePath)}.`, e);
+    }
+}
+
 export async function saveTestFile(moduleName: string, ticketId: string, ticketTitle: string, code: string): Promise<string> {
     // 1. Sanitize Inputs
     const safeModule = moduleName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
@@ -12,7 +25,6 @@ export async function saveTestFile(moduleName: string, ticketId: string, ticketT
     const filename = `${ticketId}_${safeTitle}.spec.ts`;
 
     // 2. Define Path
-    // Assuming we are running from root, target is src/tests/[Module]/
     const targetDir = path.join(process.cwd(), 'src', 'tests', safeModule);
     const filePath = path.join(targetDir, filename);
 
@@ -21,20 +33,43 @@ export async function saveTestFile(moduleName: string, ticketId: string, ticketT
         fs.mkdirSync(targetDir, { recursive: true });
     }
 
-    // 4. Clean Code (Strip Markdown wrapping)
-    let cleanCode = code.replace(/^```typescript\s*/, '').replace(/^```\s*/, '').replace(/```$/, '');
-
-    // 5. Write File
-    fs.writeFileSync(filePath, cleanCode);
+    // 4. Write & Format
+    await writeAndFormat(filePath, code);
     console.log(`Saved test file to: ${filePath}`);
 
-    // 6. Format with ESLint (Best effort)
-    try {
-        await execAsync(`npx eslint "${filePath}" --fix`);
-        console.log(`Auto-formatted: ${filename}`);
-    } catch (e) {
-        console.warn(`Warning: ESLint failed to auto-fix ${filename}. It might have syntax errors.`, e);
+    return filePath;
+}
+
+export async function savePageObject(moduleName: string, code: string): Promise<string> {
+    const safeModule = moduleName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    const filename = `${safeModule}.page.ts`;
+    const targetDir = path.join(process.cwd(), 'src', 'framework', 'pages');
+    const filePath = path.join(targetDir, filename);
+
+    if (!fs.existsSync(targetDir)) {
+        fs.mkdirSync(targetDir, { recursive: true });
     }
+
+    await writeAndFormat(filePath, code);
+    console.log(`Saved Page Object to: ${filePath}`);
+
+    return filePath;
+}
+
+export async function saveTestData(moduleName: string, ticketId: string, code: string): Promise<string> {
+    const safeModule = moduleName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    const safeId = ticketId.replace(/[^a-z0-9]/gi, '_'); // e.g. TC_1
+    const filename = `${safeId}.data.ts`;
+
+    const targetDir = path.join(process.cwd(), 'src', 'tests', safeModule, 'data');
+    const filePath = path.join(targetDir, filename);
+
+    if (!fs.existsSync(targetDir)) {
+        fs.mkdirSync(targetDir, { recursive: true });
+    }
+
+    await writeAndFormat(filePath, code);
+    console.log(`Saved Test Data to: ${filePath}`);
 
     return filePath;
 }
