@@ -10,7 +10,8 @@ export default defineConfig({
     workers: process.env.CI ? 1 : undefined,
     reporter: [
         ['line'],
-        ['allure-playwright']
+        ['allure-playwright'],
+        ['json', { outputFile: 'test-results.json' }]
     ],
     use: {
         trace: 'retain-on-failure',

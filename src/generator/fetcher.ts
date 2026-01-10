@@ -24,31 +24,43 @@ export async function getTestCandidates(): Promise<TestTicket[]> {
     }
 
     try {
-        // We use 'any' cast here if necessary to avoid strict type issues with the installed client version,
-        // but this matches the original intent of using the standard .query() method.
-        const response = await notion.dataSources.query({
-            data_source_id: DATABASE_ID,
-            filter: {
-                property: 'Status',
-                status: {
-                    equals: 'Ready for Automation',
-                },
-            },
-        });
+        const allPages: any[] = [];
+        let hasMore = true;
+        let nextCursor: string | undefined = undefined;
 
-        const intermediateResults = response.results.map((page: any, index: number) => {
-            const props = page.properties;
-            // Debugging: Log properties to find the 'Selectors' field structure
-            if (index === 0) { // Log only for the first item to avoid spam
-                console.log('Property Keys:', Object.keys(props));
-                const selectorsKey = Object.keys(props).find(k => k.toLowerCase().includes('selector'));
-                if (selectorsKey) {
-                    console.log(`Found Key: ${selectorsKey}`);
-                    console.log('Value:', JSON.stringify(props[selectorsKey], null, 2));
-                } else {
-                    console.log('No "Selectors" key found.');
-                }
+        console.log("Fetching tickets from Notion (Status: Ready for Automation)...");
+
+        // 1. Fetch ALL pages with pagination
+        while (hasMore) {
+            const queryParams: any = {
+                data_source_id: DATABASE_ID,
+                filter: {
+                    property: 'Status',
+                    status: {
+                        equals: 'Ready for Automation',
+                    },
+                },
+            };
+
+            if (nextCursor) {
+                queryParams.start_cursor = nextCursor;
             }
+
+            const response: any = await notion.dataSources.query(queryParams);
+
+            allPages.push(...response.results);
+            hasMore = response.has_more;
+            nextCursor = response.next_cursor;
+
+            if (hasMore) {
+                console.log(`  > Fetched page, total so far: ${allPages.length}. getting next page...`);
+            }
+        }
+
+        console.log(`Total candidates found: ${allPages.length}`);
+
+        const intermediateResults = allPages.map((page: any, index: number) => {
+            const props = page.properties;
 
             // Extract rich text / title helpers
             const getTitle = (p: any) => p?.title?.[0]?.plain_text || '';
@@ -72,7 +84,7 @@ export async function getTestCandidates(): Promise<TestTicket[]> {
                     const cleanText = codeBlockMatch ? codeBlockMatch[1] : text;
                     return JSON.parse(cleanText);
                 } catch (e) {
-                    console.warn(`Failed to parse Selectors JSON.`, e);
+                    // console.warn(`Failed to parse Selectors JSON.`, e);
                     return {};
                 }
             };
@@ -92,8 +104,12 @@ export async function getTestCandidates(): Promise<TestTicket[]> {
             return { ticket, pageId: page.id };
         });
 
-        // 2. Fetch content for each ticket
-        const enrichedTickets = await Promise.all(intermediateResults.map(async ({ ticket, pageId }) => {
+        // 2. Fetch content for each ticket SEQUENTIALLY to avoid Rate Limits (429)
+        // Notion allows ~3 requests/second Average. Burst is higher but safe is better.
+        const enrichedTickets: TestTicket[] = [];
+
+        for (const { ticket, pageId } of intermediateResults) {
+            // console.log(`  Fetching content for ${ticket.id}...`);
             const fullContent = await fetchPageContent(pageId);
             const parsed = parseTestContent(fullContent);
 
@@ -103,8 +119,11 @@ export async function getTestCandidates(): Promise<TestTicket[]> {
             ticket.testData = parsed.testData;
             ticket.selectors = parsed.selectors;
 
-            return ticket;
-        }));
+            enrichedTickets.push(ticket);
+
+            // Artificial delay to be nice to API
+            await new Promise(resolve => setTimeout(resolve, 350));
+        }
 
         return enrichedTickets;
 

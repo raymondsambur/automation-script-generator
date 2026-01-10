@@ -116,6 +116,9 @@ async function main() {
         } catch (error) {
             console.error(`  ❌ Failed to process ticket ${ticket.id}`, error);
         }
+
+        console.log("  Waiting 5s to avoid Rate Limits...");
+        await new Promise(resolve => setTimeout(resolve, 5000));
     }
 
     console.log("\nBatch complete.");

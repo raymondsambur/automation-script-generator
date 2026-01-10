@@ -1,16 +1,21 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import Groq from 'groq-sdk';
+import OpenAI from 'openai';
 import * as dotenv from 'dotenv';
 import { TestTicket } from './fetcher';
 
 dotenv.config();
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-
 const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY || 'dummy_key_if_missing' }); // Ensure it doesn't crash on init if key is missing, validated later
 
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY || 'dummy_key_if_missing' });
 
+const openRouter = new OpenAI({
+    baseURL: 'https://openrouter.ai/api/v1',
+    apiKey: process.env.OPENROUTER_API_KEY || 'dummy_key',
+});
+const OR_MODEL = 'meta-llama/llama-3.3-70b-instruct:free'; // Validated free model
 
 export async function generatePageObject(ticket: TestTicket, existingPageCode: string): Promise<string> {
     const systemInstruction = `You are an expert Senior SDET and Automation Architect specializing in Playwright, TypeScript, and the Page Object Model (POM).
@@ -101,8 +106,23 @@ Generate the Page Object Code now.
 
             return completion.choices[0]?.message?.content || "";
         } catch (groqError) {
-            console.error("Error generating Page Object with Groq fallback:", groqError);
-            throw e;
+            console.error("Groq fallback failed:", groqError);
+            console.log("Falling back to OpenRouter (DeepSeek)...");
+
+            try {
+                const completion = await openRouter.chat.completions.create({
+                    messages: [
+                        { role: "system", content: systemInstruction },
+                        { role: "user", content: prompt }
+                    ],
+                    model: OR_MODEL,
+                    temperature: 0.1,
+                });
+                return completion.choices[0]?.message?.content || "";
+            } catch (orError) {
+                console.error("OpenRouter fallback failed:", orError);
+                throw orError;
+            }
         }
     }
 }
@@ -143,8 +163,25 @@ Generate the Test Data file content.
         return result.response.text();
     } catch (error) {
         console.error("Gemini failed for Test Data:", error);
-        // Fallback to minimal valid TS if API fails, or rethrow
-        return `export const ${ticket.id.replace(/-/g, '_')}_Data = ${JSON.stringify({ ...ticket.testData, ...ticket.expectedResult }, null, 2)};`;
+
+        try {
+            // Quick fallback to manual generation if LLM completely fails, 
+            // but let's try OpenRouter since it's cheap/free
+            const completion = await openRouter.chat.completions.create({
+                messages: [
+                    { role: "system", content: systemInstruction },
+                    { role: "user", content: prompt }
+                ],
+                model: OR_MODEL, // Deepseek
+                temperature: 0.1,
+            });
+            return completion.choices[0]?.message?.content || "";
+
+        } catch (orError) {
+            // Fallback to minimal valid TS if ALL LLMs fail
+            console.error("All LLMs failed for Test Data:", orError);
+            return `export const ${ticket.id.replace(/-/g, '_')}_Data = ${JSON.stringify({ ...ticket.testData, ...ticket.expectedResult }, null, 2)};`;
+        }
     }
 }
 
@@ -208,7 +245,7 @@ Generate the Playwright Test Code now.
 
         return result.response.text();
     } catch (error) {
-        console.error("Error generating code with Gemini:", error);
+        console.error("Gemini failed for Test Code:", error);
         console.log("Falling back to Groq...");
 
         try {
@@ -223,8 +260,23 @@ Generate the Playwright Test Code now.
 
             return completion.choices[0]?.message?.content || "";
         } catch (groqError) {
-            console.error("Error generating code with Groq fallback:", groqError);
-            throw error;
+            console.error("Groq fallback failed:", groqError);
+            console.log("Falling back to OpenRouter (DeepSeek)...");
+
+            try {
+                const completion = await openRouter.chat.completions.create({
+                    messages: [
+                        { role: "system", content: systemInstruction },
+                        { role: "user", content: prompt }
+                    ],
+                    model: OR_MODEL,
+                    temperature: 0.1,
+                });
+                return completion.choices[0]?.message?.content || "";
+            } catch (orError) {
+                console.error("All LLMs failed for Test Code:", orError);
+                throw orError;
+            }
         }
     }
 }

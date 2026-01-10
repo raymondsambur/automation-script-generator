@@ -1,66 +1,115 @@
 import { Page } from '@playwright/test';
 import { SmartActions } from '../actions/smart-actions';
 
-export class SauceDemoPage {
-    private selectors: Record<string, string> = {
-        username_field: '<input class="input_error form_input" placeholder="Username" type="text" data-test="username" id="user-name" name="user-name" autocorrect="off" autocapitalize="none" value="">',
-        password_field: '<input class="input_error form_input" placeholder="Password" type="password" data-test="password" id="password" name="password" autocorrect="off" autocapitalize="none" value="">',
-        login_button: '<input type="submit" class="submit-button btn_action" data-test="login-button" id="login-button" name="login-button" value="Login">',
-        add_to_cart_backpack: '<button class="btn btn_primary btn_small btn_inventory" data-test="add-to-cart-sauce-labs-backpack" id="add-to-cart-sauce-labs-backpack" name="add-to-cart-sauce-labs-backpack">Add to cart</button>',
-        cart_link: '<a class="shopping_cart_link" data-test="shopping-cart-link" href="./cart.html"></a>',
-        checkout_button: '<button class="btn btn_action btn_medium checkout_button" data-test="checkout" id="checkout" name="checkout">Checkout</button>',
-        first_name_field: '<input class="input_error form_input" placeholder="First Name" type="text" data-test="firstName" id="first-name" name="firstName" autocorrect="off" autocapitalize="none" value="">',
-        last_name_field: '<input class="input_error form_input" placeholder="Last Name" type="text" data-test="lastName" id="last-name" name="lastName" autocorrect="off" autocapitalize="none" value="">',
-        postal_code_field: '<input class="input_error form_input" placeholder="Zip/Postal Code" type="text" data-test="postalCode" id="postal-code" name="postalCode" autocorrect="off" autocapitalize="none" value="">',
-        continue_button: '<input type="submit" class="submit-button btn btn_primary cart_button btn_action" data-test="continue" id="continue" name="continue" value="Continue">',
-        finish_button: '<button class="btn btn_action btn_medium cart_button" data-test="finish" id="finish" name="finish">Finish</button>',
-        complete_header: '<h2 class="complete-header" data-test="complete-header">Thank you for your order!</h2>'
-    };
+export class SauceDemoProductsPage {
+  private selectors: Record<string, string> = {
+    cart_badge: '.shopping_cart_badge',
+    add_backpack: '#add-to-cart-sauce-labs-backpack',
+    add_bike_light: '#add-to-cart-sauce-labs-bike-light',
+    remove_bike_light: '#remove-sauce-labs-bike-light',
+    remove_backpack: '#remove-sauce-labs-backpack',
+    username_field: 'input[id="user-name"]',
+    password_field: 'input[id="password"]',
+    login_button: 'input[id="login-button"]',
+    item_name_link: '.inventory_item_name',
+    details_item_name: '.inventory_details_name',
+    details_desc: '.inventory_details_desc',
+    details_add_to_cart: 'button.btn_primary.btn_small.btn_inventory',
+    cart_link: '.shopping_cart_link',
+    cart_item_name: '.inventory_item_name',
+    cart_item_qty: '.cart_quantity',
+    back_to_products: '[data-test="back-to-products"]',
+    page_header: '.title',
+    sort_dropdown: '[data-test="product_sort_container"]',
+    item_price: '.inventory_item_price',
+  };
 
-    private smart: SmartActions;
+  private smart: SmartActions;
 
-    constructor(public page: Page) {
-        this.smart = new SmartActions(page, this.selectors);
+  constructor(public page: Page) {
+    this.smart = new SmartActions(page, this.selectors);
+  }
+
+  async login(username: string, password: string): Promise<void> {
+    await this.smart.smartFill('input[id="user-name"]', username, 'Username field', 'username_field');
+    await this.smart.smartFill('input[id="password"]', password, 'Password field', 'password_field');
+    await this.smart.smartClick('input[id="login-button"]', 'Login button', 'login_button');
+  }
+
+  async addBackpackToCart(): Promise<void> {
+    await this.smart.smartClick('#add-to-cart-sauce-labs-backpack', 'Add to cart button for Sauce Labs Backpack', 'add_backpack');
+  }
+
+  async addBikeLightToCart(): Promise<void> {
+    await this.smart.smartClick('#add-to-cart-sauce-labs-bike-light', 'Add to cart button for Sauce Labs Bike Light', 'add_bike_light');
+  }
+
+  async removeBikeLightFromCart(): Promise<void> {
+    await this.smart.smartClick('#remove-sauce-labs-bike-light', 'Remove button for Sauce Labs Bike Light', 'remove_bike_light');
+  }
+
+  async removeBackpackFromCart(): Promise<void> {
+    await this.smart.smartClick('#remove-sauce-labs-backpack', 'Remove button for Sauce Labs Backpack', 'remove_backpack');
+  }
+
+  async verifyCartBadgeCount(expectedCount: number): Promise<void> {
+    await this.smart.smartWaitForVisibility('.shopping_cart_badge', `Cart badge with count ${expectedCount}`, 'cart_badge');
+    const badgeText = await this.page.textContent('.shopping_cart_badge');
+    if (badgeText!== `${expectedCount}`) {
+      throw new Error(`Expected cart badge count to be ${expectedCount}, but got ${badgeText}`);
     }
+  }
 
-    async login(username: string, password: string): Promise<void> {
-        await this.smart.smartFill('[data-test="username"]', username, 'username field', 'username_field');
-        await this.smart.smartFill('[data-test="password"]', password, 'password field', 'password_field');
-        await this.smart.smartClick('[data-test="login-button"]', 'login button', 'login_button');
-    }
+  async navigateToProductDetailsPage(itemName: string): Promise<void> {
+    await this.smart.smartClick(`.inventory_item_name`, `Product name ${itemName}`, 'item_name_link');
+  }
 
-    async addToCart(itemName: string): Promise<void> {
-        await this.smart.smartClick('[data-test="add-to-cart-sauce-labs-backpack"]', `add to cart ${itemName} button`, 'add_to_cart_backpack');
-    }
+  async verifyProductDetailsPage(): Promise<void> {
+    await this.smart.smartWaitForVisibility('.inventory_details_name', 'Item name on details page', 'details_item_name');
+    await this.smart.smartWaitForVisibility('.inventory_details_desc', 'Item description on details page', 'details_desc');
+    await this.smart.smartWaitForVisibility('button.btn_primary.btn_small.btn_inventory', 'Add to cart button on details page', 'details_add_to_cart');
+  }
 
-    async openCart(): Promise<void> {
-        await this.smart.smartClick('[data-test="shopping-cart-link"]', 'cart link', 'cart_link');
-    }
+  async openCart(): Promise<void> {
+    await this.smart.smartClick('.shopping_cart_link', 'Cart link', 'cart_link');
+  }
 
-    async checkout(): Promise<void> {
-        await this.smart.smartClick('[data-test="checkout"]', 'checkout button', 'checkout_button');
-    }
+  async verifyCartItemName(itemName: string): Promise<void> {
+    await this.smart.smartWaitForVisibility('.inventory_item_name', `Item name ${itemName}`, 'cart_item_name');
+  }
 
-    async fillCheckoutForm(firstName: string, lastName: string, postalCode: string): Promise<void> {
-        await this.smart.smartFill('[data-test="firstName"]', firstName, 'first name field', 'first_name_field');
-        await this.smart.smartFill('[data-test="lastName"]', lastName, 'last name field', 'last_name_field');
-        await this.smart.smartFill('[data-test="postalCode"]', postalCode, 'postal code field', 'postal_code_field');
+  async verifyCartItemQuantity(itemName: string, expectedQuantity: number): Promise<void> {
+    await this.smart.smartWaitForVisibility('.cart_quantity', `Item quantity ${itemName}`, 'cart_item_qty');
+    const quantityText = await this.page.textContent('.cart_quantity');
+    if (quantityText!== `${expectedQuantity}`) {
+      throw new Error(`Expected item quantity to be ${expectedQuantity}, but got ${quantityText}`);
     }
+  }
 
-    async continueCheckout(): Promise<void> {
-        await this.smart.smartClick('[data-test="continue"]', 'continue button', 'continue_button');
-    }
+  async navigateBackToProducts(): Promise<void> {
+    await this.smart.smartClick('[data-test="back-to-products"]', 'Back to products button', 'back_to_products');
+  }
 
-    async finishCheckout(): Promise<void> {
-        await this.smart.smartClick('[data-test="finish"]', 'finish button', 'finish_button');
-    }
+  async verifyProductsPage(): Promise<void> {
+    await this.smart.smartWaitForVisibility('.title', 'Products page header', 'page_header');
+  }
 
-    async verifyConfirmationMessage(expectedMessage: string): Promise<boolean> {
-        const confirmationMessage = await this.page.textContent('[data-test="complete-header"]');
-        return confirmationMessage === expectedMessage;
-    }
+  async sortProductsByPriceLowToHigh(): Promise<void> {
+    await this.smart.smartClick('[data-test="product_sort_container"]', 'Sort dropdown', 'sort_dropdown');
+    await this.smart.smartClick('option[value="lohi"]', 'Price (low to high) option', 'sort_dropdown');
+  }
 
-    async navigateTo(url: string): Promise<void> {
-        await this.page.goto(url);
+  async getProductPrices(): Promise<string[]> {
+    const prices = await this.page.$$eval('.inventory_item_price', (elements) => elements.map((element) => element.textContent));
+    return prices;
+  }
+
+  async verifyProductPricesAreSorted(): Promise<void> {
+    const prices = await this.getProductPrices();
+    const numericPrices = prices.map((price) => parseFloat(price.replace('$', '')));
+    const sortedPrices = [...numericPrices].sort((a, b) => a - b);
+    if (JSON.stringify(numericPrices)!== JSON.stringify(sortedPrices)) {
+      throw new Error('Product prices are not sorted in ascending order');
     }
+  }
 }
