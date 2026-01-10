@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "npx playwright test",
+    "test:report": "npx allure generate ./allure-results --clean -o allure-report",
+    "test:open": "npx allure open allure-report"
   },
   "keywords": [],
   "author": "",
@@ -20,7 +22,9 @@
   },
   "devDependencies": {
     "@types/node": "^25.0.3",
+    "allure-commandline": "^2.36.0",
     "eslint": "^9.39.2",
+    "rimraf": "^6.1.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   }

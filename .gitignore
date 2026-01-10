@@ -11,3 +11,5 @@ blob-report/
 # Debug logs
 *debug*.txt
 *.log
+allure-results/
+allure-report/
