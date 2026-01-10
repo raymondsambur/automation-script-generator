@@ -64,22 +64,28 @@ This project creates an autonomous end-to-end testing framework that bridges the
 ## 🏃 Usage
 
 ### 1. Generate Tests
-To fetch "Ready for Automation" tickets from Notion and generate Playwright test files:
+To fetch "Ready for Automation" tickets from Notion and generate Playwright test files with **strict Page Object Model separation**:
 ```bash
 npx ts-node src/generator/main.ts
 ```
+*   **Artifacts**:
+    *   `src/framework/pages/*.page.ts`: Page Objects (private selectors, public methods).
+    *   `src/tests/[module]/data/[id].data.ts`: Dedicated test data files.
+    *   `src/tests/[module]/[id]...spec.ts`: Clean test specs.
 
 ### 2. Run Tests
 To execute the generated Playwright tests:
 ```bash
-npx playwright test
+npm test
 ```
+*   **Video**: Recorded for ALL runs (available in Allure report).
+*   **Screenshots**: Captured only on failure.
 
 ### 3. View Reports
 To generate and view the Allure test report:
 ```bash
-npx allure generate ./allure-results --clean -o allure-report
-npx allure open allure-report
+npm run test:report   # Generates report (cleans old results)
+npm run test:open     # Opens report in browser
 ```
 
 ## 🧠 Smart Actions (Self-Healing)
