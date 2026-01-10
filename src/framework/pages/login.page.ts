@@ -9,16 +9,22 @@ export class LoginPage {
     }
 
     async navigate() {
-        await this.page.goto('/login');
+        await this.page.goto('https://www.saucedemo.com/');
     }
 
-    async enterEmail(email: string) {
-        // The AI will learn to use this pattern
-        await this.smart.smartClick('input[name="email"]', 'Email Address');
-        await this.page.fill('input[name="email"]', email);
-    }
+    async performLogin(user: string, pass: string) {
+        // We use specific selectors for SauceDemo
+        // Note: The second argument is the 'Text Hint' for self-healing
 
-    async clickSignIn() {
-        await this.smart.smartClick('button[type="submit"]', 'Sign In');
+        // 1. Username Field
+        await this.smart.smartClick('[data-test="username"]', 'Username');
+        await this.page.fill('[data-test="username"]', user);
+
+        // 2. Password Field
+        await this.smart.smartClick('[data-test="password"]', 'Password');
+        await this.page.fill('[data-test="password"]', pass);
+
+        // 3. Login Button
+        await this.smart.smartClick('[data-test="login-button"]', 'Login');
     }
 }

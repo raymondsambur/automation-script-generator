@@ -11,6 +11,7 @@ export interface TestTicket {
     title: string;
     module: string;
     status: string;
+    selectors: Record<string, string>; // New field
     prerequisites: Record<string, string>;
     steps: Record<string, string>;
     expectedResult: Record<string, string>;
@@ -35,8 +36,19 @@ export async function getTestCandidates(): Promise<TestTicket[]> {
             },
         });
 
-        const intermediateResults = response.results.map((page: any) => {
+        const intermediateResults = response.results.map((page: any, index: number) => {
             const props = page.properties;
+            // Debugging: Log properties to find the 'Selectors' field structure
+            if (index === 0) { // Log only for the first item to avoid spam
+                console.log('Property Keys:', Object.keys(props));
+                const selectorsKey = Object.keys(props).find(k => k.toLowerCase().includes('selector'));
+                if (selectorsKey) {
+                    console.log(`Found Key: ${selectorsKey}`);
+                    console.log('Value:', JSON.stringify(props[selectorsKey], null, 2));
+                } else {
+                    console.log('No "Selectors" key found.');
+                }
+            }
 
             // Extract rich text / title helpers
             const getTitle = (p: any) => p?.title?.[0]?.plain_text || '';
@@ -50,11 +62,27 @@ export async function getTestCandidates(): Promise<TestTicket[]> {
                 return p?.number?.toString() || '';
             };
 
+            // Helper to parse Selectors (assuming JSON in Rich Text)
+            const getSelectors = (p: any) => {
+                const text = getText(p);
+                if (!text) return {};
+                try {
+                    // Handle potential markdown code blocks if the user copy-pasted code
+                    const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+                    const cleanText = codeBlockMatch ? codeBlockMatch[1] : text;
+                    return JSON.parse(cleanText);
+                } catch (e) {
+                    console.warn(`Failed to parse Selectors JSON.`, e);
+                    return {};
+                }
+            };
+
             const ticket: TestTicket = {
                 id: getId(props['Test ID']),
                 title: getTitle(props['Title']),
                 module: getSelect(props['Module']),
                 status: getStatus(props['Status']),
+                selectors: getSelectors(props['Selectors']), // Map the new field
                 prerequisites: {},
                 steps: {}, // Will be populated from content
                 expectedResult: {},
@@ -136,8 +164,12 @@ function parseTestContent(content: string): { prerequisites: Record<string, stri
 
     if (testDataMatch) {
         const rawData = testDataMatch[1].trim();
-        // Try to remove markdown code blocks like ```json ... ```
-        const cleanData = rawData.replace(/^```(?:json)?\s*|\s*```$/g, '');
+
+
+        // Extract JSON from code block if present
+        const codeBlockMatch = rawData.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+        const cleanData = codeBlockMatch ? codeBlockMatch[1] : rawData;
+
         try {
             sections.testData = JSON.parse(cleanData);
         } catch (e) {
