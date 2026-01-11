@@ -136,14 +136,20 @@ Update or Generate a strictly typed TypeScript data file that acts as a SHARED d
 **Rules:**
 1.  **Efficiency:** Reuse existing variables (e.g. \`standard_user\`) if the values match. Do not create duplicate variables with the same values.
 2.  **Additions:** Add new exported constants or properties to existing objects ONLY if the ticket requires data not present in the existing file.
-3.  **Naming:** Use descriptive variable names (e.g. \`standardUser\`, \`inventoryItems\`).
-4.  **Format:** Return the **ENTIRE** updated file content. It must include all previous data + new data.
-5.  **Strict Types:** No 'any'.
-6.  **No Markdown:** Return PURE CODE.
+3.  **STRICT CONTENT:** The file must **ONLY** contain:
+    *   Test Data values (users, items, inputs).
+    *   Expected Result strings/objects.
+    *   **ABSOLUTELY NO** \`selectors\` object.
+    *   **ABSOLUTELY NO** \`steps\` object.
+    *   **ABSOLUTELY NO** \`prerequisites\` object.
+4.  **Naming:** Use descriptive variable names (e.g. \`standardUser\`, \`inventoryItems\`).
+5.  **Format:** Return the **ENTIRE** updated file content. It must include all previous data + new data.
+6.  **Strict Types:** No 'any'.
+7.  **No Markdown:** Return PURE CODE.
 
 **Input:**
-*   Ticket IO: \`testData\` and \`expectedResult\`.
-*   Existing File Content (might be empty).
+*   Ticket IO: \`testData\` and \`expectedResult\` ONLY.
+*   Existing File Content.
 
 **Output:**
 The COMPLETE, valid TypeScript Source Code for the shared data file.

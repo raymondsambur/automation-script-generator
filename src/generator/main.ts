@@ -79,10 +79,10 @@ async function main() {
             // 5. Generate & Save Shared Test Data
             console.log(`  > Generatng/Updating Shared Module Data...`);
 
-            // Construct path to shared data file: src/tests/<module>/<module>.data.ts
+            // Construct path to centralized shared data file: src/framework/data/<module>.data.ts
             const safeTestModule = ticket.module.replace(/[^a-z0-9]/gi, '_').toLowerCase();
             const dataFileName = `${safeTestModule}.data.ts`;
-            const dataDir = path.join(process.cwd(), 'src', 'tests', safeTestModule);
+            const dataDir = path.join(process.cwd(), 'src', 'framework', 'data');
             const dataFilePath = path.join(dataDir, dataFileName);
 
             let existingData = "";
@@ -96,10 +96,12 @@ async function main() {
 
             // 6. Generate Test Code
             const testFileName = `${ticket.id.replace(/-/g, '_')}.spec.ts`;
-            // safeTestModule calculated above
             const testFilePath = path.join(process.cwd(), 'src', 'tests', safeTestModule, testFileName);
 
             // Calculate Imports
+            // testFilePath: src/tests/<module>/TC.spec.ts
+            // dataFilePath: src/framework/data/<module>.data.ts
+            // We want path relative to test file.
             let dataImportPath = path.relative(path.dirname(testFilePath), dataFilePath).replace(/\\/g, '/').replace(/\.ts$/, '');
             if (!dataImportPath.startsWith('.')) {
                 dataImportPath = './' + dataImportPath;

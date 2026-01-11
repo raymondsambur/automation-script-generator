@@ -60,7 +60,7 @@ export async function saveTestData(moduleName: string, code: string): Promise<st
     const safeModule = moduleName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
     const filename = `${safeModule}.data.ts`; // SHARED data file
 
-    const targetDir = path.join(process.cwd(), 'src', 'tests', safeModule); // Save DIRECTLY in module dir
+    const targetDir = path.join(process.cwd(), 'src', 'framework', 'data'); // Centralized Data Dir
     const filePath = path.join(targetDir, filename);
 
     if (!fs.existsSync(targetDir)) {
