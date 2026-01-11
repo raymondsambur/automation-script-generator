@@ -25,20 +25,9 @@ async function main() {
     console.log(`Found ${tickets.length} tickets to process.`);
 
     // 2. Load Page Object Context
-    // Read all .ts files in src/framework/pages
+    // Optimization: We now load context dynamically per-ticket to save tokens.
+    // See "Smart Injection" below.
     const pagesDir = path.join(process.cwd(), 'src', 'framework', 'pages');
-    let pageObjectContext = "";
-
-    if (fs.existsSync(pagesDir)) {
-        const files = fs.readdirSync(pagesDir).filter(f => f.endsWith('.ts'));
-        for (const file of files) {
-            const content = fs.readFileSync(path.join(pagesDir, file), 'utf-8');
-            pageObjectContext += `\n// FILE: ${file}\n${content}\n`;
-        }
-        console.log(`Loaded context from ${files.length} page objects.`);
-    } else {
-        console.warn(`Warning: Page Object directory not found at ${pagesDir}. Generating without specific POM context.`);
-    }
 
     // 3. Translate & Write
     for (const ticket of tickets) {
@@ -68,12 +57,26 @@ async function main() {
             await savePageObject(ticket.module, updatedPageCode);
 
 
-            // Step 2: Reload Context (simplified, just reading the new file we just saved)
-            // Ideally we reload all files, but let's just use the updated code for this specific page + others.
-            let currentContext = pageObjectContext;
-            // If we just updated a file, we should replace it in context. 
-            // Simple hack: append it, likely overriding or providing more info.
-            currentContext += `\n// FILE: ${pageFileName} (UPDATED)\n${updatedPageCode}\n`;
+            // Step 2: Reload Context (Smart Injection)
+            // Strategy: Only load Core Pages (Authentication) + Current Module Page
+            // This significantly reduces token usage compared to loading ALL pages.
+
+            const corePages = ['authentication.page.ts'];
+            const currentModulePage = pageFileName; // calculated above (e.g. title.page.ts)
+
+            // Create a unique set of pages to load (avoid duplicates if current module IS authentication)
+            const pagesToLoad = new Set([...corePages, currentModulePage]);
+
+            let currentContext = "";
+            console.log(`  > Loading Context from: ${Array.from(pagesToLoad).join(', ')}`);
+
+            for (const p of pagesToLoad) {
+                const pPath = path.join(pagesDir, p);
+                if (fs.existsSync(pPath)) {
+                    const content = fs.readFileSync(pPath, 'utf-8');
+                    currentContext += `\n// FILE: ${p}\n${content}\n`;
+                }
+            }
 
 
             // 5. Generate & Save Shared Test Data
