@@ -56,12 +56,11 @@ export async function savePageObject(moduleName: string, code: string): Promise<
     return filePath;
 }
 
-export async function saveTestData(moduleName: string, ticketId: string, code: string): Promise<string> {
+export async function saveTestData(moduleName: string, code: string): Promise<string> {
     const safeModule = moduleName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-    const safeId = ticketId.replace(/[^a-z0-9]/gi, '_'); // e.g. TC_1
-    const filename = `${safeId}.data.ts`;
+    const filename = `${safeModule}.data.ts`; // SHARED data file
 
-    const targetDir = path.join(process.cwd(), 'src', 'tests', safeModule, 'data');
+    const targetDir = path.join(process.cwd(), 'src', 'tests', safeModule); // Save DIRECTLY in module dir
     const filePath = path.join(targetDir, filename);
 
     if (!fs.existsSync(targetDir)) {

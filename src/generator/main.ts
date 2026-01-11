@@ -76,36 +76,43 @@ async function main() {
             currentContext += `\n// FILE: ${pageFileName} (UPDATED)\n${updatedPageCode}\n`;
 
 
-            // 5. Generate & Save Test Data
-            console.log(`  > Generating Test Data...`);
-            const testDataCode = await generateTestData(ticket);
-            const dataFilePath = await saveTestData(ticket.module, ticket.id, testDataCode);
+            // 5. Generate & Save Shared Test Data
+            console.log(`  > Generatng/Updating Shared Module Data...`);
 
-            // Prepare context for test generation
-            // Note: testFilePath is not defined here, assuming it will be determined by writer.saveTestFile
-            // For now, let's use a placeholder or assume it's derived from ticket.module and ticket.id
-            const testFileName = `${ticket.id.replace(/-/g, '_')}.spec.ts`;
-            // Calculate module dir for test: src/tests/[safeModule]
-            // writer.saveTestFile uses safeModule.
+            // Construct path to shared data file: src/tests/<module>/<module>.data.ts
             const safeTestModule = ticket.module.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+            const dataFileName = `${safeTestModule}.data.ts`;
+            const dataDir = path.join(process.cwd(), 'src', 'tests', safeTestModule);
+            const dataFilePath = path.join(dataDir, dataFileName);
+
+            let existingData = "";
+            if (fs.existsSync(dataFilePath)) {
+                existingData = fs.readFileSync(dataFilePath, 'utf-8');
+            }
+
+            const testDataCode = await generateTestData(ticket, existingData);
+            await saveTestData(ticket.module, testDataCode);
+
+
+            // 6. Generate Test Code
+            const testFileName = `${ticket.id.replace(/-/g, '_')}.spec.ts`;
+            // safeTestModule calculated above
             const testFilePath = path.join(process.cwd(), 'src', 'tests', safeTestModule, testFileName);
 
+            // Calculate Imports
             let dataImportPath = path.relative(path.dirname(testFilePath), dataFilePath).replace(/\\/g, '/').replace(/\.ts$/, '');
             if (!dataImportPath.startsWith('.')) {
                 dataImportPath = './' + dataImportPath;
             }
-            const dataObjectName = `${ticket.id.replace(/-/g, '_')}_Data`;
 
-            // Calculate Page Import Path
-            // pageFilePath is defined earlier as src/framework/pages/[safePageModule].page.ts
             let pageImportPath = path.relative(path.dirname(testFilePath), pageFilePath).replace(/\\/g, '/').replace(/\.ts$/, '');
             if (!pageImportPath.startsWith('.')) {
                 pageImportPath = './' + pageImportPath;
             }
 
-            // 6. Generate Test Code
             console.log(`  > Asking Gemini to generate Test Code...`);
-            const testCode = await generateTestCode(ticket, currentContext, dataImportPath, dataObjectName, pageImportPath);
+            // Pass testDataCode (the content) as context so the LLM knows what to import
+            const testCode = await generateTestCode(ticket, currentContext, dataImportPath, testDataCode, pageImportPath);
 
             // 7. Save Test File
             await saveTestFile(ticket.module, ticket.id, ticket.title, testCode);

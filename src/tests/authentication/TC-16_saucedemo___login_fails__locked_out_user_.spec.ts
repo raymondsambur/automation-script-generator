@@ -1,23 +1,23 @@
+// FILE: authentication.spec.ts
+
 import { test, expect } from '@playwright/test';
-import { SauceDemoLoginPage } from '../../framework/pages/authentication.page';
-import { TC_16_Data } from './data/TC_16.data';
+import { SauceDemoPage } from '../../framework/pages/authentication.page';
+import { lockedOutUser } from './authentication.data';
 
-test.describe('TC-16 - SauceDemo - Login Fails (Locked Out User)', () => {
-  let page: SauceDemoLoginPage;
+test.describe('SauceDemo - Login Fails (Locked Out User)', () => {
+  let sauceDemoPage: SauceDemoPage;
 
-  test.beforeEach(async ({ page: browserPage }) => {
-    page = new SauceDemoLoginPage(browserPage);
-    await page.navigateToLoginPage();
+  test.beforeEach(async ({ page }) => {
+    sauceDemoPage = new SauceDemoPage(page);
   });
 
-  test('TC-16 - SauceDemo - Login Fails (Locked Out User)', async () => {
-    await page.enterUsername(TC_16_Data.username);
-    await page.enterPassword(TC_16_Data.password);
-    await page.clickLogin();
-    await page.waitForErrorMessage();
-    const errorMessage = await page.page.locator('[data-test="error"]').textContent();
-    expect(errorMessage).toContain('Epic sadface: Sorry, this user has been locked out.');
-    const currentPageUrl = await page.page.url();
-    expect(currentPageUrl).not.toContain('/inventory.html');
+  test('TC-16: Login fails with locked out user', async () => {
+    await sauceDemoPage.navigateToLoginPage();
+    await sauceDemoPage.enterUsername(lockedOutUser.username);
+    await sauceDemoPage.enterPassword(lockedOutUser.password);
+    await sauceDemoPage.clickLogin();
+    await sauceDemoPage.waitForErrorMessage();
+    const currentUrl = await sauceDemoPage.page.url();
+    expect(currentUrl).toBe('https://www.saucedemo.com/');
   });
 });

@@ -1,7 +1,7 @@
 import { Page } from '@playwright/test';
 import { SmartActions } from '../actions/smart-actions';
 
-export class SauceDemoProductsPage {
+export class SauceDemoCheckoutPage {
   private selectors: Record<string, string> = {
     cart_badge: '.shopping_cart_badge',
     add_backpack: '#add-to-cart-sauce-labs-backpack',
@@ -22,6 +22,12 @@ export class SauceDemoProductsPage {
     page_header: '.title',
     sort_dropdown: '[data-test="product_sort_container"]',
     item_price: '.inventory_item_price',
+    checkout: '#checkout',
+    first_name: '#first-name',
+    last_name: '#last-name',
+    postal_code: '#postal-code',
+    continue: '#continue',
+    error_message: '[data-test="error"]',
   };
 
   private smart: SmartActions;
@@ -111,5 +117,33 @@ export class SauceDemoProductsPage {
     if (JSON.stringify(numericPrices)!== JSON.stringify(sortedPrices)) {
       throw new Error('Product prices are not sorted in ascending order');
     }
+  }
+
+  async checkout(): Promise<void> {
+    await this.smart.smartClick('#checkout', 'Checkout button', 'checkout');
+  }
+
+  async enterCheckoutInfo(firstName: string, lastName: string, postalCode: string): Promise<void> {
+    await this.smart.smartFill('#first-name', firstName, 'First name field', 'first_name');
+    await this.smart.smartFill('#last-name', lastName, 'Last name field', 'last_name');
+    await this.smart.smartFill('#postal-code', postalCode, 'Postal code field', 'postal_code');
+  }
+
+  async continueCheckout(): Promise<void> {
+    await this.smart.smartClick('#continue', 'Continue button', 'continue');
+  }
+
+  async verifyErrorMessage(): Promise<void> {
+    await this.smart.smartWaitForVisibility('[data-test="error"]', 'Error message', 'error_message');
+  }
+
+  async navigateToProductDetailsPageUsingItemName(itemName: string): Promise<void> {
+    await this.smart.smartClick(`.inventory_item_name`, `Product name ${itemName}`, 'item_name_link');
+  }
+
+  async verifyProductDetailsPageVisibility(): Promise<void> {
+    await this.smart.smartWaitForVisibility('.inventory_details_name', 'Item name on details page', 'details_item_name');
+    await this.smart.smartWaitForVisibility('.inventory_details_desc', 'Item description on details page', 'details_desc');
+    await this.smart.smartWaitForVisibility('button.btn_primary.btn_small.btn_inventory', 'Add to cart button on details page', 'details_add_to_cart');
   }
 }

@@ -1,22 +1,27 @@
+Here's the generated Playwright test code based on the provided ticket and page object context:
+
+```typescript
 import { test, expect } from '@playwright/test';
 import { SauceDemoPage } from '../../framework/pages/authentication.page';
-import { TC_15_Data } from './data/TC_15.data';
+import { standardUser } from './authentication.data';
 
-test.describe('TC-15 - SauceDemo - Logout From Menu', () => {
-  let page: SauceDemoPage;
+test.describe('SauceDemo - Logout From Menu', () => {
+  let sauceDemoPage: SauceDemoPage;
 
-  test.beforeEach(async ({ page: browserPage }) => {
-    page = new SauceDemoPage(browserPage);
-    await page.navigateToLoginPage();
-    await page.enterUsername(TC_15_Data.username);
-    await page.enterPassword(TC_15_Data.password);
-    await page.clickLogin();
+  test.beforeEach(async ({ page }) => {
+    sauceDemoPage = new SauceDemoPage(page);
+    await sauceDemoPage.navigateToLoginPage();
+    await sauceDemoPage.loginWithValidCredentials(standardUser.username, standardUser.password);
+    await sauceDemoPage.waitForProductsHeader();
   });
 
-  test('TC-15 - SauceDemo - Logout From Menu', async () => {
-    await page.logout();
-    const currentUrl = await page.page.url();
+  test('TC-15: Logout from menu', async () => {
+    await sauceDemoPage.logout();
+    const currentUrl = await sauceDemoPage.page.url();
     expect(currentUrl).not.toContain('/inventory.html');
-    await page.verifyLoginButtonIsVisible();
+    await sauceDemoPage.verifyLoginButtonIsVisible();
   });
 });
+```
+
+This test code covers the scenario described in the ticket, where a user logs in with valid credentials, navigates to the products page, and then logs out from the menu. The test verifies that the user is returned to the login page, the URL does not contain `/inventory.html`, and the login button is visible after logging out.

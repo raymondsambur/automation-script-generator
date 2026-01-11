@@ -127,31 +127,36 @@ Generate the Page Object Code now.
     }
 }
 
-export async function generateTestData(ticket: TestTicket): Promise<string> {
+export async function generateTestData(ticket: TestTicket, existingData: string): Promise<string> {
     const systemInstruction = `You are an expert Senior SDET.
 
 **Your Goal:**
-Generate a strictly typed TypeScript data file containing the test data for the provided Test Ticket.
+Update or Generate a strictly typed TypeScript data file that acts as a SHARED data source for all tests in this module.
 
 **Rules:**
-1.  **Format:** Export a constant object named after the Ticket ID (sanitized).
-    *   Example: \`export const TC1_Data = { ... };\`
-2.  **Content:** purely the \`testData\` and \`expectedResult\` fields from the ticket.
-3.  **Strict Types:** No 'any'. infer types from values.
-4.  **No Markdown:** Return PURE CODE.
+1.  **Efficiency:** Reuse existing variables (e.g. \`standard_user\`) if the values match. Do not create duplicate variables with the same values.
+2.  **Additions:** Add new exported constants or properties to existing objects ONLY if the ticket requires data not present in the existing file.
+3.  **Naming:** Use descriptive variable names (e.g. \`standardUser\`, \`inventoryItems\`).
+4.  **Format:** Return the **ENTIRE** updated file content. It must include all previous data + new data.
+5.  **Strict Types:** No 'any'.
+6.  **No Markdown:** Return PURE CODE.
 
 **Input:**
-*   Ticket JSON.
+*   Ticket IO: \`testData\` and \`expectedResult\`.
+*   Existing File Content (might be empty).
 
 **Output:**
-TypeScript Source Code.
+The COMPLETE, valid TypeScript Source Code for the shared data file.
 `;
 
     const prompt = `
 TEST TICKET:
 ${JSON.stringify(ticket, null, 2)}
 
-Generate the Test Data file content.
+EXISTING SHARED DATA FILE:
+${existingData || "// Empty file"}
+
+Generate the merged/updated Test Data file content.
 `;
 
     try {
@@ -165,61 +170,50 @@ Generate the Test Data file content.
         console.error("Gemini failed for Test Data:", error);
 
         try {
-            // Quick fallback to manual generation if LLM completely fails, 
-            // but let's try OpenRouter since it's cheap/free
             const completion = await openRouter.chat.completions.create({
                 messages: [
                     { role: "system", content: systemInstruction },
                     { role: "user", content: prompt }
                 ],
-                model: OR_MODEL, // Deepseek
+                model: OR_MODEL, // Deepseek/Llama
                 temperature: 0.1,
             });
             return completion.choices[0]?.message?.content || "";
 
         } catch (orError) {
-            // Fallback to minimal valid TS if ALL LLMs fail
             console.error("All LLMs failed for Test Data:", orError);
-            return `export const ${ticket.id.replace(/-/g, '_')}_Data = ${JSON.stringify({ ...ticket.testData, ...ticket.expectedResult }, null, 2)};`;
+            // Fallback: Append to existing if possible, or just return basic
+            return existingData + `\n// Fallback: \nexport const ${ticket.id.replace(/-/g, '_')}_Data = ${JSON.stringify({ ...ticket.testData, ...ticket.expectedResult }, null, 2)};`;
         }
     }
 }
 
-export async function generateTestCode(ticket: TestTicket, pageObjectContext: string, dataImportPath: string, dataObjectName: string, pageImportPath: string): Promise<string> {
-    const systemInstruction = `You are an expert Senior SDET and Automation Architect specializing in Playwright, TypeScript, and the Page Object Model (POM).
+export async function generateTestCode(ticket: TestTicket, pageObjectContext: string, dataImportPath: string, dataFileContent: string, pageImportPath: string): Promise<string> {
+    const systemInstruction = `You are an expert Senior SDET.
 
 **Your Goal:**
-Generate a strictly typed, executable Playwright test file (.spec.ts) based on the provided "Test Ticket" and "Page Object Context".
+Generate a strictly typed, executable Playwright test file (.spec.ts).
 
-**Rules & Guidelines:**
-1.  **Strict TypeScript:** Use strict types. No 'any'.
-2.  **Imports:**
+**Rules:**
+1.  **Imports:**
     *   Import \`test\`, \`expect\` from \`@playwright/test\`.
-    *   **CRITICAL:** Import Page Objects from \`${pageImportPath}\`.
-    *   **CRITICAL:** Import Test Data from \`${dataImportPath}\`.
-3.  **Page Object Integration:**
-    *   Instantiate Page Object: \`const myPage = new MyPage(page);\`.
-    *   **DO NOT** pass selectors. They are internal to the Page Object.
-4.  **Test Structure:**
-    *   Use \`test.describe\` with the Ticket Title.
-    *   Use \`test\` with the Ticket ID and Title.
-    *   Use \`test.beforeEach\` for setup.
-5.  **Data Usage:**
-    *   Use the imported data object: \`${dataObjectName}\`.
-    *   Example: \`await myPage.login(${dataObjectName}.username, ${dataObjectName}.password);\`.
-6.  **Assertions:**
-    *   Implement assertions matching the "Expected Result" from the ticket.
-    *   Use \`expect(...)\`.
-7.  **No Markdown:** Return PURE CODE.
+    *   Import Page Objects from \`${pageImportPath}\`.
+    *   **Import Data:** Import the necessary data constants from \`${dataImportPath}\`.
+        *   Look at the "SHARED DATA FILE CONTENT" to see what is exported.
+        *   Example: \`import { standardUser, inventoryItems } from '${dataImportPath}';\`
+2.  **Page Object Usage:**
+    *   Instantiate: \`const myPage = new MyPage(page);\`.
+    *   Do NOT pass selectors.
+3.  **Structure:** \`test.describe\` -> \`test.beforeEach\` -> \`test\`.
+4.  **No Markdown:** Return PURE CODE.
 
-**Input Data:**
-*   **Ticket:** JSON object.
-*   **Page Object Context:** To know class names and methods.
-*   **Data Object Name:** e.g. TC1_Data.
-*   **Page Import Path:** The relative path to import the page object.
+**Input:**
+*   Ticket JSON.
+*   Page Object Context (Class definition).
+*   Shared Data File Content (Exports).
 
 **Output:**
-A complete, runnable .spec.ts file.
+Runnable .spec.ts file.
 `;
 
     const prompt = `
@@ -229,7 +223,9 @@ ${JSON.stringify(ticket, null, 2)}
 EXISTING PAGE OBJECTS (Context):
 ${pageObjectContext}
 
-DATA OBJECT NAME: ${dataObjectName}
+SHARED DATA FILE CONTENT (Exports):
+${dataFileContent}
+
 DATA IMPORT PATH: ${dataImportPath}
 PAGE IMPORT PATH: ${pageImportPath}
 

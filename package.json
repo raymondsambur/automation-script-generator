@@ -7,7 +7,7 @@
     "test:report": "npx allure generate ./allure-results --clean -o allure-report",
     "test:open": "npx allure open allure-report",
     "test:update-notion": "npx ts-node src/reporter/notion-updater.ts",
-    "test:full": "npx playwright test && npm run test:update-notion"
+    "test:full": "node run-suite.js"
   },
   "keywords": [],
   "author": "",

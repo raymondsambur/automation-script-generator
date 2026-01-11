@@ -70,7 +70,7 @@ npx ts-node src/generator/main.ts
 ```
 *   **Artifacts**:
     *   `src/framework/pages/*.page.ts`: Page Objects (private selectors, public methods).
-    *   `src/tests/[module]/data/[id].data.ts`: Dedicated test data files.
+    *   `src/tests/[module]/[module].data.ts`: Shared test data per module.
     *   `src/tests/[module]/[id]...spec.ts`: Clean test specs.
 
 ### 2. Run Tests

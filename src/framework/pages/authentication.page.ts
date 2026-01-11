@@ -116,4 +116,21 @@ export class SauceDemoPage {
       throw new Error(`Expected URL to contain '/inventory.html' but got '${currentUrl}'`);
     }
   }
+
+  async loginWithLockedOutUser(username: string, password: string): Promise<void> {
+    await this.navigateToLoginPage();
+    await this.enterUsername(username);
+    await this.enterPassword(password);
+    await this.clickLogin();
+    await this.waitForErrorMessage();
+    const currentUrl = await this.page.url();
+    if (currentUrl!== 'https://www.saucedemo.com/') {
+      throw new Error(`Expected URL to be 'https://www.saucedemo.com/' but got '${currentUrl}'`);
+    }
+  }
+
+  async loginAndLogout(username: string, password: string): Promise<void> {
+    await this.loginWithValidCredentials(username, password);
+    await this.logout();
+  }
 }
