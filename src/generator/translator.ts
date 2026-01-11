@@ -121,7 +121,8 @@ Generate the Page Object Code now.
                 return completion.choices[0]?.message?.content || "";
             } catch (orError) {
                 console.error("OpenRouter fallback failed:", orError);
-                throw orError;
+                console.warn("⚠️ All LLMs failed. Switching to Heuristic Generation.");
+                return generateSkeletonPageObject(ticket, existingPageCode);
             }
         }
     }
@@ -188,8 +189,7 @@ Generate the merged/updated Test Data file content.
 
         } catch (orError) {
             console.error("All LLMs failed for Test Data:", orError);
-            // Fallback: Append to existing if possible, or just return basic
-            return existingData + `\n// Fallback: \nexport const ${ticket.id.replace(/-/g, '_')}_Data = ${JSON.stringify({ ...ticket.testData, ...ticket.expectedResult }, null, 2)};`;
+            return generateTestDataSkeleton(ticket, existingData);
         }
     }
 }
@@ -277,8 +277,115 @@ Generate the Playwright Test Code now.
                 return completion.choices[0]?.message?.content || "";
             } catch (orError) {
                 console.error("All LLMs failed for Test Code:", orError);
-                throw orError;
+                console.warn("⚠️ All LLMs failed. Switching to Heuristic Generation.");
+                return generateTestCodeSkeleton(ticket, pageObjectContext, dataImportPath, dataFileContent, pageImportPath);
             }
         }
     }
+}
+
+// ==========================================
+// HEURISTIC FALLBACK GENERATORS (No-LLM)
+// ==========================================
+
+function formatKey(key: string): string {
+    return key.replace(/[^a-zA-Z0-9_]/g, '_');
+}
+
+export function generateSkeletonPageObject(ticket: TestTicket, existingCode: string): string {
+    const className = `${ticket.module.charAt(0).toUpperCase() + ticket.module.slice(1)}Page`;
+    const selectors = ticket.selectors || {};
+
+    // If existing code exists, we might want to return it or append to it.
+    // For safety in fallback mode, if existing code exists, we just return it to avoid overwriting with a skeleton.
+    if (existingCode && existingCode.length > 50) {
+        console.log("  [Heuristic] Existing Page Object found. Preserving it.");
+        return existingCode;
+    }
+
+    const selectorLines = Object.entries(selectors)
+        .map(([key, value]) => `        '${key}': '${value.replace(/'/g, "\\'")}',`)
+        .join('\n');
+
+    const methods = Object.keys(selectors).map(key => {
+        const cleanKey = formatKey(key);
+        // Heuristic: If key contains 'input' or 'field', it's a fill. Else it's a click.
+        if (key.toLowerCase().includes('input') || key.toLowerCase().includes('field') || key.toLowerCase().includes('user') || key.toLowerCase().includes('pass')) {
+            return `    async fill${cleanKey.charAt(0).toUpperCase() + cleanKey.slice(1)}(value: string) {
+        await this.smart.smartFill('[data-heuristic="${key}"]', value, '${key}', '${key}'); 
+    }`;
+        } else {
+            return `    async click${cleanKey.charAt(0).toUpperCase() + cleanKey.slice(1)}() {
+        await this.smart.smartClick('[data-heuristic="${key}"]', '${key}', '${key}');
+    }`;
+        }
+    }).join('\n\n');
+
+    return `import { Page } from '@playwright/test';
+import { SmartActions } from '../actions/smart-actions';
+
+export class ${className} {
+    private smart: SmartActions;
+    private selectors: Record<string, string> = {
+${selectorLines}
+    };
+
+    constructor(public page: Page) {
+        this.smart = new SmartActions(page, this.selectors);
+    }
+
+${methods}
+
+    // TODO: Manually verify these heuristic methods.
+}
+`;
+}
+
+export function generateTestDataSkeleton(ticket: TestTicket, existingData: string): string {
+    // If existing data exists, we append to it.
+    let output = existingData || "";
+
+    // Check if we already have exports for these keys to avoid duplicates (basic check)
+    const testDataKey = `${ticket.id.replace(/-/g, '_')}_TestData`;
+    const expectedKey = `${ticket.id.replace(/-/g, '_')}_Expected`;
+
+    if (!output.includes(testDataKey)) {
+        output += `\n\nexport const ${testDataKey} = ${JSON.stringify(ticket.testData, null, 2)};`;
+    }
+
+    if (!output.includes(expectedKey)) {
+        output += `\n\nexport const ${expectedKey} = ${JSON.stringify(ticket.expectedResult, null, 2)};`;
+    }
+
+    return output;
+}
+
+export function generateTestCodeSkeleton(ticket: TestTicket, pageObjectContext: string, dataImportPath: string, dataFileContent: string, pageImportPath: string): string {
+    const className = `${ticket.module.charAt(0).toUpperCase() + ticket.module.slice(1)}Page`;
+    const safeModule = ticket.module.toLowerCase().replace(/[^a-z0-9]/g, '_');
+
+    const steps = ticket.steps.map((step, index) => {
+        return `        // Step ${index + 1}: ${step.action}\n        // Expected: ${step.expected_result}`;
+    }).join('\n\n');
+
+    return `import { test, expect } from '@playwright/test';
+import { ${className} } from '${pageImportPath}';
+import * as TestData from '${dataImportPath}';
+
+test.describe('${ticket.id}: ${ticket.title.replace(/'/g, "\\'")}', () => {
+    let page: ${className};
+
+    test.beforeEach(async ({ page: browserPage }) => {
+        page = new ${className}(browserPage);
+        // TODO: Implement login or navigation here
+        // await page.login();
+    });
+
+    test('${ticket.title.replace(/'/g, "\\'")}', async () => {
+${steps}
+        
+        // TODO: Implement steps using 'page' object
+    });
+});
+`;
 }
